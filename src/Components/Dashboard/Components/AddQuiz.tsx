@@ -3,10 +3,13 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
+  CircularProgress,
   Collapse,
   Dialog,
   Grid2,
   IconButton,
+  Popover,
   Stack,
   TextField,
   Typography,
@@ -16,10 +19,13 @@ import {
   ArrowDropDown,
   ArrowDropUp,
   Close,
-  DeleteForever
+  DeleteForever,
 } from "@mui/icons-material";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
+import { authAxios } from "../../../http";
+import { useSocketProvider } from "../../../Providers";
 export const AddQuiz = ({
   open,
   handleClose,
@@ -129,6 +135,7 @@ export const AddQuiz = ({
           </Stack>
         ))}
       </Stack>
+      <UserSearch />
       <Button
         sx={{ width: "200px" }}
         variant="contained"
@@ -138,6 +145,88 @@ export const AddQuiz = ({
         Make it
       </Button>
     </Dialog>
+  );
+};
+
+const UserSearch = () => {
+  const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
+  const anchorEl = useRef<any | null>(null);
+  const { handleSendSocketMessage } = useSocketProvider();
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchValue(searchValue);
+    }, 600);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [searchValue]);
+
+  const userSearchQuery = useQuery({
+    queryKey: ["userSearch", debouncedSearchValue],
+    queryFn: () =>
+      authAxios.get("/api/user/search", {
+        params: { search: debouncedSearchValue },
+      }),
+    enabled: !!debouncedSearchValue,
+  });
+  return (
+    <Stack>
+      <TextField
+        onClick={(e) => {
+          anchorEl.current = e.currentTarget;
+        }}
+        value={searchValue}
+        onChange={(e) => setSearchValue(e.target.value)}
+        placeholder="Search for a user to invite them"
+      />
+      <Popover
+        open={!!debouncedSearchValue}
+        anchorEl={anchorEl.current}
+        onClose={() => setDebouncedSearchValue("")}
+        anchorPosition={{ top: 100, left: 0 }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: "350px",
+              mt: 6,
+              p: 2,
+            },
+          },
+        }}
+      >
+        <Typography pb={2} variant="h6">
+          Users for your search:
+        </Typography>
+        {userSearchQuery.isLoading ? (
+          <CircularProgress />
+        ) : !userSearchQuery.data?.data?.users.length ? (
+          <Typography>No Users found for {debouncedSearchValue}</Typography>
+        ) : (
+          <Stack direction="row" gap={1} flexWrap={"wrap"}>
+            {userSearchQuery.data?.data?.users.map((u: any) => (
+              <Chip
+                label={u.username}
+                key={u.userId}
+                color="success"
+                sx={{ color: "secondary.main" }}
+                onClick={() => {
+                  handleSendSocketMessage({
+                    type: "invite-sent",
+                    payload: {
+                      invitedUserId: u.userId,
+                      invitedByUserId: localStorage.getItem("userId"),
+                    },
+                  });
+                }}
+              />
+            ))}
+          </Stack>
+        )}
+      </Popover>
+    </Stack>
   );
 };
 

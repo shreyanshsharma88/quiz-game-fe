@@ -1,5 +1,5 @@
 import { Route, Routes } from "react-router-dom";
-import { AppThemeProvider } from "./Providers";
+import { AppThemeProvider, SocketProvider } from "./Providers";
 import { Dashboard, LoginSignup } from "./Components";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastContainer } from "react-toastify";
@@ -39,7 +39,9 @@ function App() {
           <QueryClientProvider client={queryClient}>
             <Routes>
               <Route path="/" element={<LoginSignup />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route element={<SocketProvider />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+              </Route>
             </Routes>
           </QueryClientProvider>
         </Stack>

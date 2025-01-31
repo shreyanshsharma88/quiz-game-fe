@@ -1,18 +1,16 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { IconButton, Stack, Tooltip, Typography } from "@mui/material";
-import { useDashboard } from "../Hooks/useDashboard";
 
 import { Add, Logout } from "@mui/icons-material";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AddQuiz } from "./AddQuiz";
-import { AddQuizQuestions } from "./AddQuizQuestions";
-import { useAddQuiz } from "../Hooks";
-import { FormProvider } from "react-hook-form";
+import { useGetUser } from "../../../Hooks";
+import { useSocketProvider } from "../../../Providers";
 
 export const Dashboard = () => {
-  const { getUserQuery } = useDashboard();
-  const [sp, ssp] = useSearchParams();
+  const { getUserQuery } = useGetUser();
   const navigate = useNavigate();
-  const { form } = useAddQuiz();
+  const [_, ssp] = useSearchParams();
+  const { handleSendSocketMessage} = useSocketProvider()
 
   return (
     <Stack alignItems="center" height="90dvh" direction="column" gap={4} p={2}>
@@ -44,7 +42,15 @@ export const Dashboard = () => {
 
       <Tooltip title="Create a new quiz">
         <IconButton
-          onClick={() => ssp("addQuizOpen=true")}
+          onClick={() => {ssp("addQuizOpen=true")
+            handleSendSocketMessage({
+              type: "PRE_QUIZ",
+              payload: {
+                userId: localStorage.getItem("userId"),
+                username : getUserQuery.data?.data.username 
+              },
+            })
+          }}
           sx={{
             borderRadius: "100%",
             p: 2,
@@ -56,31 +62,6 @@ export const Dashboard = () => {
           <Add />
         </IconButton>
       </Tooltip>
-
-      <FormProvider {...form}>
-        <AddQuiz
-          open={!!sp.get("addQuizOpen")}
-          handleClose={() => {
-            const params = new URLSearchParams(sp);
-            params.delete("addQuizOpen");
-            ssp(params.toString());
-          }}
-          onSubmit={() => {}}
-          onAddQuestions={() => {
-            const params = new URLSearchParams(sp);
-            params.set("addQuizQuestionsOpen", "true");
-            ssp(params.toString());
-          }}
-        />
-        <AddQuizQuestions
-          open={!!sp.get("addQuizQuestionsOpen")}
-          handleClose={() => {
-            const params = new URLSearchParams(sp);
-            params.delete("addQuizQuestionsOpen");
-            ssp(params.toString());
-          }}
-        />
-      </FormProvider>
     </Stack>
   );
 };

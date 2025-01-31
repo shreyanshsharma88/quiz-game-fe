@@ -8,18 +8,26 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Outlet } from "react-router-dom";
+import { FormProvider } from "react-hook-form";
+import { Outlet, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import { AddQuiz, QuizInvitation, useAddQuiz } from "../Components";
+import { AddQuizQuestions } from "../Components/Dashboard/Components/AddQuizQuestions";
+import { useGetUser } from "../Hooks";
 
 export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const userId = localStorage.getItem("userId");
+  const [sp, ssp] = useSearchParams();
+  const { form } = useAddQuiz();
+  const { getUserQuery } = useGetUser();
 
   useEffect(() => {
     if (userId) {
       const ws = new WebSocket(`ws://localhost:8080/ws/${userId}`);
       ws.onopen = () => {
         console.log("WebSocket connection established.");
+        toast.success("WebSocket connection established.");
       };
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
@@ -27,8 +35,36 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
       ws.onmessage = (message) => {
         const data: ISendSocketMessageProps = JSON.parse(message.data);
 
-        if (data.type === "invite-incoming") {
-          toast.info(`You have an invite from ${data.payload.invitedBy}`);
+        switch (data.type) {
+           
+          case "INVITE_INCOMING": {
+            toast.info(`Incoming invite from ${data.payload.invitedByUserId}`);
+            const params = new URLSearchParams(sp);
+            params.set("quizName", data.payload.quizName);
+            params.set("invitedBy", data.payload.username);
+            params.set("invitedById", data.payload.invitedByUserId);
+            ssp(params.toString());
+            break;
+          }
+          case "INVITE_ACCEPTED": {
+            toast.success(
+              `New User Joined`
+            );
+            form.setValue("players", data.payload.users);
+            break;
+          }
+          case "INVITE_DECLINED": {
+            toast.error(`Invite declined by ${data.payload.invitedUsername}`);
+            break;
+          }
+          case "NOT_FOUND": {
+            toast.error(`User not online`);
+            break;
+          }
+          default: {
+            toast.error(`Unknown message type`);
+            break;
+          }
         }
       };
       setSocket(ws);
@@ -60,6 +96,75 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
     <SocketContext.Provider value={value}>
       {children}
       <Outlet />
+
+      <FormProvider {...form}>
+        <AddQuiz
+          open={!!sp.get("addQuizOpen")}
+          handleClose={() => {
+              handleSendSocketMessage({
+                type: "REMOVE_PRE_QUIZ",
+                payload: {
+                  userId: localStorage.getItem("userId"),
+                },
+              });
+            const params = new URLSearchParams(sp);
+            params.delete("addQuizOpen");
+            ssp(params.toString());
+          }}
+          onSubmit={() => {}}
+          onAddQuestions={() => {
+            const params = new URLSearchParams(sp);
+            params.set("addQuizQuestionsOpen", "true");
+            ssp(params.toString());
+          }}
+        />
+        <AddQuizQuestions
+          open={!!sp.get("addQuizQuestionsOpen")}
+          handleClose={() => {
+            const params = new URLSearchParams(sp);
+            params.delete("addQuizQuestionsOpen");
+            ssp(params.toString());
+          }}
+        />
+        <QuizInvitation
+          open={
+            !!sp.get("quizName") &&
+            !!sp.get("invitedBy") &&
+            !!sp.get("invitedById")
+          }
+          handleAccept={() => {
+            handleSendSocketMessage({
+              type: "INVITE_ACCEPTED",
+              payload: {
+                invitedByUserId: sp.get("invitedById"),
+                username: sp.get("invitedBy"),
+                quizName: sp.get("quizName"),
+                invitedUserId: localStorage.getItem("userId"),
+                invitedUsername: getUserQuery.data?.data.username,
+              },
+            });
+          }}
+          handleClose={() => {
+            const params = new URLSearchParams(sp);
+            params.delete("quizName");
+            params.delete("invitedBy");
+            params.delete("invitedById");
+            ssp(params.toString());
+          }}
+          handleDecline={() => {
+            handleSendSocketMessage({
+                type: "INVITE_DECLINED",
+                payload: {
+                    invitedByUserId: sp.get("invitedById"),
+                    username: sp.get("invitedBy"),
+                    quizName: sp.get("quizName"),
+                    invitedUserId: localStorage.getItem("userId"),
+                    invitedUsername: getUserQuery.data?.data.username,
+                }
+            })
+          }}
+        />
+      </FormProvider>
     </SocketContext.Provider>
   );
 };
@@ -78,12 +183,15 @@ interface ISocketProviderProps {
 
 interface ISendSocketMessageProps {
   type:
-    | "message"
-    | "invite-sent"
-    | "invite-accepted"
-    | "invite-declined"
-    | "invite-incoming"
-    | "quiz-started";
+    | "MESSAGE"
+    | "INVITE_SENT"
+    | "INVITE_ACCEPTED"
+    | "INVITE_DECLINED"
+    | "INVITE_INCOMING"
+    | "NOT_FOUND"
+    | "PRE_QUIZ"
+    | "REMOVE_PRE_QUIZ"
+    | "QUIZ_STARTED";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any;
 }

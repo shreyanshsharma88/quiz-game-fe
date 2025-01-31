@@ -28,6 +28,9 @@ export const getTheme = () => {
       success: {
         main: "#4CAF50",
       },
+      warning:{
+        main: "#ffae42"
+      }
     },
     components: {
       MuiButton: {

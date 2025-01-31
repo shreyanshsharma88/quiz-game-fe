@@ -21,9 +21,11 @@ import {
   Close,
   DeleteForever,
 } from "@mui/icons-material";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { useQuery } from "@tanstack/react-query";
+import { toast } from "react-toastify";
+import { useGetUser } from "../../../Hooks";
 import { authAxios } from "../../../http";
 import { useSocketProvider } from "../../../Providers";
 export const AddQuiz = ({
@@ -136,6 +138,14 @@ export const AddQuiz = ({
         ))}
       </Stack>
       <UserSearch />
+
+      <Typography>Users Joined</Typography>
+      <Stack direction="row" gap={2} flexWrap="wrap" width='100%'>
+        {form.watch("players")?.map((p: any) => {
+          if (!p) return  null
+          return <Chip label={p.username} key={p.userId} color="info" />;
+        })}
+      </Stack>
       <Button
         sx={{ width: "200px" }}
         variant="contained"
@@ -153,6 +163,9 @@ const UserSearch = () => {
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const anchorEl = useRef<any | null>(null);
   const { handleSendSocketMessage } = useSocketProvider();
+  const form = useFormContext();
+
+  const { getUserQuery } = useGetUser();
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -213,11 +226,15 @@ const UserSearch = () => {
                 color="success"
                 sx={{ color: "secondary.main" }}
                 onClick={() => {
+                  toast("Invite Sent");
                   handleSendSocketMessage({
-                    type: "invite-sent",
+                    type: "INVITE_SENT",
                     payload: {
                       invitedUserId: u.userId,
                       invitedByUserId: localStorage.getItem("userId"),
+                      quizName: form.watch("name"),
+                      username: getUserQuery.data?.data.username,
+                      invitedUsername: u.username,
                     },
                   });
                 }}

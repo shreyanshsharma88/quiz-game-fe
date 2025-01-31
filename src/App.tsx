@@ -6,6 +6,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Stack } from "@mui/material";
 
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -19,7 +20,7 @@ function App() {
     <>
       <AppThemeProvider>
         <Stack
-          maxWidth="1400px"
+          maxWidth="1200px"
           width="100%"
           justifySelf="center"
           justifyContent="center"

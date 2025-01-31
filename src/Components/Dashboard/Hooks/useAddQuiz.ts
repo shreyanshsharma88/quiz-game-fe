@@ -8,13 +8,12 @@ export const useAddQuiz = () => {
   const form = useForm({
     defaultValues: {
       name: "",
-      players: [] as string[],
+      players: [] as { userId: string; username: string }[],
       questions: [] as IQuestions[],
     },
   });
 
-  console.log({form: form.watch('questions')});
-  
+  console.log({ form: form.watch("questions") });
 
   return {
     form,

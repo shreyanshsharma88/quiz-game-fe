@@ -64,6 +64,13 @@ export const getTheme = () => {
           },
         },
       },
+      MuiChip:{
+        styleOverrides:{
+          root:{
+            cursor: "pointer",
+          }
+        }
+      }
     },
   });
   return { appTheme };

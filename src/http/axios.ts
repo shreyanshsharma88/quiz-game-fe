@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "react-toastify";
 
 export const authAxios = axios.create({
   baseURL: "http://localhost:8080",
@@ -25,6 +26,7 @@ authAxios.interceptors.request.use(
 
 authAxios.interceptors.response.use((res) => {
   if (res.status === 401) {
+    toast.error("Seems like someone is intruding, huhh?");
     localStorage.clear();
     window.location.href = "/";
   }

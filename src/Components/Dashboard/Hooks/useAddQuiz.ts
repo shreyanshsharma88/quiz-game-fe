@@ -2,7 +2,8 @@ import { useForm } from "react-hook-form";
 
 export interface IQuestions {
   question: string;
-  answers: { label: string; isCorrect: boolean }[];
+  answers: { label: string; isCorrect: boolean; answerId?: string }[];
+  questionId?: string;
 }
 export const useAddQuiz = () => {
   const form = useForm({
@@ -13,7 +14,6 @@ export const useAddQuiz = () => {
     },
   });
 
-  console.log({ form: form.watch("questions") });
 
   return {
     form,

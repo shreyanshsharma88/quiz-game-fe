@@ -222,6 +222,7 @@ const QuizDetails = ({ open, quizId }: { open: boolean; quizId: string }) => {
                           textOverflow: "ellipsis",
                           overflow: "hidden",
                           width: "200px",
+                          whiteSpace: "nowrap",
                         }}
                       />
                     </Tooltip>

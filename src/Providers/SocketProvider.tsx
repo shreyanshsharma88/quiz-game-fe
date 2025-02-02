@@ -11,7 +11,13 @@ import {
 import { FormProvider } from "react-hook-form";
 import { Outlet, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AddQuiz, QuizInvitation, useAddQuiz } from "../Components";
+import {
+  AddPrevQuestions,
+  AddQuiz,
+  PreQuiz,
+  QuizInvitation,
+  useAddQuiz,
+} from "../Components";
 import { AddQuizQuestions } from "../Components/Dashboard/Components/AddQuizQuestions";
 import { useGetUser } from "../Hooks";
 
@@ -34,11 +40,13 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
       };
       ws.onmessage = (message) => {
         const data: ISendSocketMessageProps = JSON.parse(message.data);
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+        };
 
         switch (data.type) {
-           
           case "INVITE_INCOMING": {
-            toast.info(`Incoming invite from ${data.payload.invitedByUserId}`);
+            toast.info(`Incoming invite from ${data.payload.username}`);
             const params = new URLSearchParams(sp);
             params.set("quizName", data.payload.quizName);
             params.set("invitedBy", data.payload.username);
@@ -47,10 +55,14 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
             break;
           }
           case "INVITE_ACCEPTED": {
-            toast.success(
-              `New User Joined`
-            );
+            toast.success(`New User Joined`);
             form.setValue("players", data.payload.users);
+            if (data.payload.creatorId !== localStorage.getItem("userId")) {
+              ssp({
+                inPreQuiz: "true",
+                creatorId: data.payload.creatorId,
+              });
+            }
             break;
           }
           case "INVITE_DECLINED": {
@@ -59,6 +71,16 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
           }
           case "NOT_FOUND": {
             toast.error(`User not online`);
+            break;
+          }
+          case "IN_QUIZ": {
+            if (data.payload.creatorId != localStorage.getItem("userId")) {
+              ssp({
+                inPreQuiz: "true",
+                creatorId: data.payload.creatorId,
+              });
+            }
+            form.setValue("players", data.payload.users);
             break;
           }
           default: {
@@ -101,15 +123,16 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
         <AddQuiz
           open={!!sp.get("addQuizOpen")}
           handleClose={() => {
-              handleSendSocketMessage({
-                type: "REMOVE_PRE_QUIZ",
-                payload: {
-                  userId: localStorage.getItem("userId"),
-                },
-              });
+            handleSendSocketMessage({
+              type: "REMOVE_PRE_QUIZ",
+              payload: {
+                userId: localStorage.getItem("userId"),
+              },
+            });
             const params = new URLSearchParams(sp);
             params.delete("addQuizOpen");
             ssp(params.toString());
+            form.reset();
           }}
           onSubmit={() => {}}
           onAddQuestions={() => {
@@ -153,17 +176,27 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
           }}
           handleDecline={() => {
             handleSendSocketMessage({
-                type: "INVITE_DECLINED",
-                payload: {
-                    invitedByUserId: sp.get("invitedById"),
-                    username: sp.get("invitedBy"),
-                    quizName: sp.get("quizName"),
-                    invitedUserId: localStorage.getItem("userId"),
-                    invitedUsername: getUserQuery.data?.data.username,
-                }
-            })
+              type: "INVITE_DECLINED",
+              payload: {
+                invitedByUserId: sp.get("invitedById"),
+                username: sp.get("invitedBy"),
+                quizName: sp.get("quizName"),
+                invitedUserId: localStorage.getItem("userId"),
+                invitedUsername: getUserQuery.data?.data.username,
+              },
+            });
           }}
         />
+
+        <AddPrevQuestions
+          open={!!sp.get("addingPrevQues")}
+          onClose={() => {
+            const params = new URLSearchParams(sp);
+            params.delete("addingPrevQues");
+            ssp(params.toString());
+          }}
+        />
+        <PreQuiz open={!!sp.get("inPreQuiz")} />
       </FormProvider>
     </SocketContext.Provider>
   );
@@ -191,6 +224,7 @@ interface ISendSocketMessageProps {
     | "NOT_FOUND"
     | "PRE_QUIZ"
     | "REMOVE_PRE_QUIZ"
+    | "IN_QUIZ"
     | "QUIZ_STARTED";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any;

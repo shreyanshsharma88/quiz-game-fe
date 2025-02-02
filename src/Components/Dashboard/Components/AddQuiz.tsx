@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Box,
@@ -28,6 +29,7 @@ import { toast } from "react-toastify";
 import { useGetUser } from "../../../Hooks";
 import { authAxios } from "../../../http";
 import { useSocketProvider } from "../../../Providers";
+import { useSearchParams } from "react-router-dom";
 export const AddQuiz = ({
   open,
   handleClose,
@@ -38,6 +40,7 @@ export const AddQuiz = ({
   const [openedQuestionIndexes, setOpenedQuestionIndexes] = useState(
     [] as number[]
   );
+  const [sp, ssp] = useSearchParams();
   return (
     <Dialog
       open={open}
@@ -75,6 +78,11 @@ export const AddQuiz = ({
         <Typography>/</Typography>
         <Button
           variant="outlined"
+          onClick={() => {
+            const params = new URLSearchParams(sp);
+            params.set("addingPrevQues", "true");
+            ssp(params.toString());
+          }}
           sx={{
             backgroundColor: "success.main",
             color: "background.default",
@@ -85,7 +93,7 @@ export const AddQuiz = ({
         </Button>
       </Box>
       <Stack width="100%" gap={2}>
-        {form.watch("questions").map((q: any, i: number) => (
+        {form.watch("questions")?.map((q: any, i: number) => (
           <Stack width="100%" borderBottom="1px solid #EDECF9" key={i}>
             <Box width="100%" display="flex" justifyContent="space-between">
               <Typography variant="body1">{q.question}</Typography>
@@ -122,7 +130,7 @@ export const AddQuiz = ({
             </Box>
             <Collapse in={openedQuestionIndexes.includes(i)}>
               <Grid2 container spacing={2} sx={{ justifySelf: "center" }}>
-                {q.answers.map((a: any, ai: number) => (
+                {q.answers?.map((a: any, ai: number) => (
                   <Grid2
                     size={{ lg: 6 }}
                     key={ai}
@@ -139,10 +147,10 @@ export const AddQuiz = ({
       </Stack>
       <UserSearch />
 
-      <Typography>Users Joined</Typography>
-      <Stack direction="row" gap={2} flexWrap="wrap" width='100%'>
+      <Typography>Users Joined:</Typography>
+      <Stack direction="row" gap={2} flexWrap="wrap" width="100%">
         {form.watch("players")?.map((p: any) => {
-          if (!p) return  null
+          if (!p) return null;
           return <Chip label={p.username} key={p.userId} color="info" />;
         })}
       </Stack>
@@ -226,6 +234,16 @@ const UserSearch = () => {
                 color="success"
                 sx={{ color: "secondary.main" }}
                 onClick={() => {
+                  if (!form.watch("name")) {
+                    return toast.error("Please enter a quiz name first");
+                  }
+                  if (
+                    form
+                      .watch("players")
+                      .find((p: any) => p.userId === u.userId)
+                  ) {
+                    return toast.error("User already in game");
+                  }
                   toast("Invite Sent");
                   handleSendSocketMessage({
                     type: "INVITE_SENT",

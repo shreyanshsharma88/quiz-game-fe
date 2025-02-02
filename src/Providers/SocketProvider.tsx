@@ -20,6 +20,8 @@ import {
 } from "../Components";
 import { AddQuizQuestions } from "../Components/Dashboard/Components/AddQuizQuestions";
 import { useGetUser } from "../Hooks";
+import { useMutation } from "@tanstack/react-query";
+import { authAxios } from "../http";
 
 export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -107,6 +109,23 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
     [socket]
   );
 
+  const createQuizMutation = useMutation({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mutationFn: (data: any) => authAxios.post("/api/quiz", data),
+  });
+
+  const handleCreateQuiz = form.handleSubmit((values) => {
+    const newQuestions = values.questions.filter((q) => !q.questionId);
+
+    const newQuiz = {
+      quizName: values.name,
+      questions: newQuestions,
+      users: values.players.map((p) => p.userId),
+      totalQues: newQuestions.length,
+    };
+    createQuizMutation.mutate(newQuiz);
+  });
+
   const value = useMemo(
     () => ({
       socket,
@@ -134,7 +153,7 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
             ssp(params.toString());
             form.reset();
           }}
-          onSubmit={() => {}}
+          onSubmit={() => handleCreateQuiz()}
           onAddQuestions={() => {
             const params = new URLSearchParams(sp);
             params.set("addQuizQuestionsOpen", "true");

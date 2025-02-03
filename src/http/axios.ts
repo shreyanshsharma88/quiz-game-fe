@@ -24,20 +24,23 @@ authAxios.interceptors.request.use(
   }
 );
 
-authAxios.interceptors.response.use((res) => {
-  if (res.status === 401) {
-    toast.error("Seems like someone is intruding, huhh?");
-    localStorage.clear();
-    window.location.href = "/";
-  }
-  return res;
-},
-(err) => {
+authAxios.interceptors.response.use(
+  (res) => {
+    if (res.status === 401) {
+      toast.error("Seems like someone is intruding, huhh?");
+      localStorage.clear();
+      window.location.href = "/";
+      return res;
+    }
+    return res;
+  },
+  (err) => {
     console.log(err);
-
+    toast.error(err.response.data.error ?? "Something went wrong");
     if (err.response.status === 401) {
       localStorage.clear();
       window.location.href = "/";
     }
     return Promise.reject(err);
-  });
+  }
+);

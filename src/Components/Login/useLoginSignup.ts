@@ -1,10 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { authAxios } from "../../http";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AxiosError } from "axios";
+import { authAxios } from "../../http";
 
 export const useLoginSignup = () => {
   const [userAction, setUserAction] = useState<"login" | "signup">("login");
@@ -32,10 +31,6 @@ export const useLoginSignup = () => {
         localStorage.setItem("userId", data.data.userId);
         navigate("/dashboard");
         toast.success("Logged in successfully");
-      },
-      onError: (error : AxiosError) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        toast.error((error.response?.data as any)?.error || "An error occurred");
       }
   });
 

@@ -109,13 +109,30 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
     [socket]
   );
 
+  const addQuestionsInQuizMutation = useMutation({
+    mutationFn: (data: { quizId: string; payload: string[] }) =>
+      authAxios.put(`/api/quiz/${data.quizId}`, { quizzes: data.payload }),
+  });
   const createQuizMutation = useMutation({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: (data: any) => authAxios.post("/api/quiz", data),
+    onSuccess: () => {
+      toast.success("Quiz Created");
+      form.reset();
+      // fire socket event
+    },
   });
 
   const handleCreateQuiz = form.handleSubmit((values) => {
     const newQuestions = values.questions.filter((q) => !q.questionId);
+    const oldQuestions = values.questions
+      .filter((q) => !!q.questionId)
+      .map((q) => {
+        if (q.questionId !== undefined) {
+          return q.questionId;
+        }
+        return "";
+      });
 
     const newQuiz = {
       quizName: values.name,
@@ -123,7 +140,14 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
       users: values.players.map((p) => p.userId),
       totalQues: newQuestions.length,
     };
-    createQuizMutation.mutate(newQuiz);
+    createQuizMutation.mutate(newQuiz, {
+      onSuccess: (data) => {
+        addQuestionsInQuizMutation.mutate({
+          quizId: data.data.quizId,
+          payload: oldQuestions,
+        });
+      },
+    });
   });
 
   const value = useMemo(

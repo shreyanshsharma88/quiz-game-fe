@@ -85,6 +85,14 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
             form.setValue("players", data.payload.users);
             break;
           }
+          case "REMOVE_PRE_QUIZ": {
+            const params = new URLSearchParams(sp);
+            params.delete("inPreQuiz");
+            params.delete("creatorId");
+            ssp(params.toString());
+            toast.error("Quiz Cancelled by creator");
+            break;
+          }
           default: {
             toast.error(`Unknown message type`);
             break;

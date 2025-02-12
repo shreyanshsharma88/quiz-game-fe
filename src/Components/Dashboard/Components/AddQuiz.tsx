@@ -25,11 +25,10 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useGetUser } from "../../../Hooks";
 import { authAxios } from "../../../http";
 import { useSocketProvider } from "../../../Providers";
-import { useSearchParams } from "react-router-dom";
 export const AddQuiz = ({
   open,
   handleClose,
@@ -173,7 +172,6 @@ const UserSearch = () => {
   const { handleSendSocketMessage } = useSocketProvider();
   const form = useFormContext();
 
-  const { getUserQuery } = useGetUser();
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -246,15 +244,13 @@ const UserSearch = () => {
                   }
                   toast("Invite Sent");
                   handleSendSocketMessage({
-                    type: "INVITE_SENT",
-                    payload: {
+                    type: 'INVITE_SENT',
+                    externalPayloadParams:{ 
                       invitedUserId: u.userId,
-                      invitedByUserId: localStorage.getItem("userId"),
                       quizName: form.watch("name"),
-                      username: getUserQuery.data?.data.username,
                       invitedUsername: u.username,
-                    },
-                  });
+                    }
+                  })
                 }}
               />
             ))}

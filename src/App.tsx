@@ -1,6 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { AppThemeProvider, SocketProvider } from "./Providers";
-import { Dashboard, LoginSignup } from "./Components";
+import { Dashboard, LoginSignup, Quiz } from "./Components";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -20,10 +20,11 @@ function App() {
     <>
       <AppThemeProvider>
         <Stack
-          maxWidth="1200px"
+          maxWidth="800px"
           width="100%"
           justifySelf="center"
           justifyContent="center"
+          mt={4}
         >
           <ToastContainer
             position="top-right"
@@ -42,6 +43,7 @@ function App() {
               <Route path="/" element={<LoginSignup />} />
               <Route element={<SocketProvider />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/play/:quizId/:quizName" element={<Quiz />} />
               </Route>
             </Routes>
           </QueryClientProvider>

@@ -119,10 +119,7 @@ export const Dashboard = () => {
             ssp("addQuizOpen=true");
             handleSendSocketMessage({
               type: "PRE_QUIZ",
-              payload: {
-                userId: localStorage.getItem("userId"),
-                username: getUserQuery.data?.data.username,
-              },
+              
             });
           }}
           sx={{

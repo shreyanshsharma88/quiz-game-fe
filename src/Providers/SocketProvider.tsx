@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMutation } from "@tanstack/react-query";
 import {
   createContext,
   FC,
@@ -9,7 +11,7 @@ import {
   useState,
 } from "react";
 import { FormProvider } from "react-hook-form";
-import { Outlet, useSearchParams } from "react-router-dom";
+import { Outlet, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   AddPrevQuestions,
@@ -19,8 +21,7 @@ import {
   useAddQuiz,
 } from "../Components";
 import { AddQuizQuestions } from "../Components/Dashboard/Components/AddQuizQuestions";
-import { useGetUser } from "../Hooks";
-import { useMutation } from "@tanstack/react-query";
+import { useSocket } from "../Hooks";
 import { authAxios } from "../http";
 
 export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
@@ -28,7 +29,14 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
   const userId = localStorage.getItem("userId");
   const [sp, ssp] = useSearchParams();
   const { form } = useAddQuiz();
-  const { getUserQuery } = useGetUser();
+  const navigate = useNavigate();
+  const {
+    onIncomingInvite,
+    onInviteAccepted,
+    onInQuiz,
+    onRemovePreQuiz,
+    handleEmitSocketMessages,
+  } = useSocket();
 
   useEffect(() => {
     if (userId) {
@@ -48,23 +56,11 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
 
         switch (data.type) {
           case "INVITE_INCOMING": {
-            toast.info(`Incoming invite from ${data.payload.username}`);
-            const params = new URLSearchParams(sp);
-            params.set("quizName", data.payload.quizName);
-            params.set("invitedBy", data.payload.username);
-            params.set("invitedById", data.payload.invitedByUserId);
-            ssp(params.toString());
+            onIncomingInvite({ data });
             break;
           }
           case "INVITE_ACCEPTED": {
-            toast.success(`New User Joined`);
-            form.setValue("players", data.payload.users);
-            if (data.payload.creatorId !== localStorage.getItem("userId")) {
-              ssp({
-                inPreQuiz: "true",
-                creatorId: data.payload.creatorId,
-              });
-            }
+            onInviteAccepted({ data, form });
             break;
           }
           case "INVITE_DECLINED": {
@@ -76,21 +72,15 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
             break;
           }
           case "IN_QUIZ": {
-            if (data.payload.creatorId != localStorage.getItem("userId")) {
-              ssp({
-                inPreQuiz: "true",
-                creatorId: data.payload.creatorId,
-              });
-            }
-            form.setValue("players", data.payload.users);
+            onInQuiz({ data, form });
             break;
           }
           case "REMOVE_PRE_QUIZ": {
-            const params = new URLSearchParams(sp);
-            params.delete("inPreQuiz");
-            params.delete("creatorId");
-            ssp(params.toString());
-            toast.error("Quiz Cancelled by creator");
+            onRemovePreQuiz();
+            break;
+          }
+          case "QUIZ_STARTED": {
+            navigate(`/play/${data.payload.quizId}/${data.payload.quizName}`);
             break;
           }
           default: {
@@ -103,7 +93,7 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
     }
   }, [userId]);
 
-  const handleSendSocketMessage = useCallback(
+  const emitSocketMessage = useCallback(
     ({ type, payload }: ISendSocketMessageProps) => {
       if (socket) {
         socket.send(
@@ -117,18 +107,32 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
     [socket]
   );
 
+  const handleSendSocketMessage = useCallback(
+    ({
+      type,
+      externalPayloadParams,
+    }: {
+      type: ISendSocketMessageProps["type"];
+      externalPayloadParams?: any;
+    }) => {
+      handleEmitSocketMessages({
+        emitSocketMessage,
+        type,
+        externalPayloadParams,
+      });
+    },
+    [emitSocketMessage, handleEmitSocketMessages]
+  );
+
   const addQuestionsInQuizMutation = useMutation({
     mutationFn: (data: { quizId: string; payload: string[] }) =>
-      authAxios.put(`/api/quiz/${data.quizId}`, { quizzes: data.payload }),
+      authAxios.put(`/api/quiz/${data.quizId}/questions`, {
+        quizzes: data.payload,
+      }),
   });
   const createQuizMutation = useMutation({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: (data: any) => authAxios.post("/api/quiz", data),
-    onSuccess: () => {
-      toast.success("Quiz Created");
-      form.reset();
-      // fire socket event
-    },
   });
 
   const handleCreateQuiz = form.handleSubmit((values) => {
@@ -150,6 +154,21 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
     };
     createQuizMutation.mutate(newQuiz, {
       onSuccess: (data) => {
+        toast.success("Quiz Created");
+        form.reset();
+        handleEmitSocketMessages({
+          emitSocketMessage,
+          type: "QUIZ_STARTED",
+          externalPayloadParams: {
+            quizId: data.data.quizId,
+            users: form.getValues("players").map((p) => ({
+              userId: p.userId,
+              username: p.username,
+              score: 0,
+            })),
+          },
+        });
+        if (oldQuestions.length === 0) return;
         addQuestionsInQuizMutation.mutate({
           quizId: data.data.quizId,
           payload: oldQuestions,
@@ -174,16 +193,10 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
         <AddQuiz
           open={!!sp.get("addQuizOpen")}
           handleClose={() => {
-            handleSendSocketMessage({
+            handleEmitSocketMessages({
+              emitSocketMessage,
               type: "REMOVE_PRE_QUIZ",
-              payload: {
-                userId: localStorage.getItem("userId"),
-              },
             });
-            const params = new URLSearchParams(sp);
-            params.delete("addQuizOpen");
-            ssp(params.toString());
-            form.reset();
           }}
           onSubmit={() => handleCreateQuiz()}
           onAddQuestions={() => {
@@ -207,15 +220,9 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
             !!sp.get("invitedById")
           }
           handleAccept={() => {
-            handleSendSocketMessage({
+            handleEmitSocketMessages({
+              emitSocketMessage,
               type: "INVITE_ACCEPTED",
-              payload: {
-                invitedByUserId: sp.get("invitedById"),
-                username: sp.get("invitedBy"),
-                quizName: sp.get("quizName"),
-                invitedUserId: localStorage.getItem("userId"),
-                invitedUsername: getUserQuery.data?.data.username,
-              },
             });
           }}
           handleClose={() => {
@@ -226,15 +233,9 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
             ssp(params.toString());
           }}
           handleDecline={() => {
-            handleSendSocketMessage({
+            handleEmitSocketMessages({
+              emitSocketMessage,
               type: "INVITE_DECLINED",
-              payload: {
-                invitedByUserId: sp.get("invitedById"),
-                username: sp.get("invitedBy"),
-                quizName: sp.get("quizName"),
-                invitedUserId: localStorage.getItem("userId"),
-                invitedUsername: getUserQuery.data?.data.username,
-              },
             });
           }}
         />
@@ -262,10 +263,16 @@ export const useSocketProvider = () => {
 
 interface ISocketProviderProps {
   socket: WebSocket | null;
-  handleSendSocketMessage: (props: ISendSocketMessageProps) => void;
+  handleSendSocketMessage: ({
+    type,
+    externalPayloadParams,
+  }: {
+    type: ISendSocketMessageProps["type"];
+    externalPayloadParams?: any;
+  }) => void;
 }
 
-interface ISendSocketMessageProps {
+export interface ISendSocketMessageProps {
   type:
     | "MESSAGE"
     | "INVITE_SENT"

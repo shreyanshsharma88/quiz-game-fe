@@ -30,6 +30,8 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
   const [sp, ssp] = useSearchParams();
   const { form } = useAddQuiz();
   const navigate = useNavigate();
+  const params = new URLSearchParams(sp);
+
   const {
     onIncomingInvite,
     onInviteAccepted,
@@ -155,7 +157,6 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
     createQuizMutation.mutate(newQuiz, {
       onSuccess: (data) => {
         toast.success("Quiz Created");
-        form.reset();
         handleEmitSocketMessages({
           emitSocketMessage,
           type: "QUIZ_STARTED",
@@ -166,8 +167,10 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
               username: p.username,
               score: 0,
             })),
+            quizName: values.name,
           },
         });
+        form.reset();
         if (oldQuestions.length === 0) return;
         addQuestionsInQuizMutation.mutate({
           quizId: data.data.quizId,
@@ -197,10 +200,11 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
               emitSocketMessage,
               type: "REMOVE_PRE_QUIZ",
             });
+            params.delete("addQuizOpen");
+            ssp(params.toString());
           }}
           onSubmit={() => handleCreateQuiz()}
           onAddQuestions={() => {
-            const params = new URLSearchParams(sp);
             params.set("addQuizQuestionsOpen", "true");
             ssp(params.toString());
           }}
@@ -208,7 +212,6 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
         <AddQuizQuestions
           open={!!sp.get("addQuizQuestionsOpen")}
           handleClose={() => {
-            const params = new URLSearchParams(sp);
             params.delete("addQuizQuestionsOpen");
             ssp(params.toString());
           }}
@@ -226,7 +229,6 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
             });
           }}
           handleClose={() => {
-            const params = new URLSearchParams(sp);
             params.delete("quizName");
             params.delete("invitedBy");
             params.delete("invitedById");
@@ -243,7 +245,6 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
         <AddPrevQuestions
           open={!!sp.get("addingPrevQues")}
           onClose={() => {
-            const params = new URLSearchParams(sp);
             params.delete("addingPrevQues");
             ssp(params.toString());
           }}

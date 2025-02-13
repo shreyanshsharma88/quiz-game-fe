@@ -17,6 +17,7 @@ authAxios.interceptors.request.use(
     console.log(err);
 
     if (err.response.status === 401) {
+      toast.error("Seems like token expired, login again!!")
       localStorage.clear();
       window.location.href = "/";
     }
@@ -27,7 +28,7 @@ authAxios.interceptors.request.use(
 authAxios.interceptors.response.use(
   (res) => {
     if (res.status === 401) {
-      toast.error("Seems like someone is intruding, huhh?");
+      toast.error("Seems like token expired, login again!!");
       localStorage.clear();
       window.location.href = "/";
       return res;
@@ -38,6 +39,7 @@ authAxios.interceptors.response.use(
     console.log(err);
     toast.error(err.response.data.error ?? "Something went wrong");
     if (err.response.status === 401) {
+      toast.error("Seems like token expired, login again!!");
       localStorage.clear();
       window.location.href = "/";
     }

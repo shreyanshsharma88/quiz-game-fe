@@ -69,12 +69,15 @@ export const useSocket = () => {
     type: ISendSocketMessageProps["type"];
     externalPayloadParams?: any;
   }) => {
+   
+
     const payload = createPayload({
       type,
       username,
       userId: localStorage.getItem("userId") ?? "",
       sp,
     });
+    
     emitSocketMessage({
       type,
       payload: {
@@ -139,23 +142,27 @@ const createPayload = ({
       payload = {
         creatorId: userId,
       };
-      break
+      break;
     }
 
-    case "INVITE_SENT" :{
-        payload = {
-            invitedByUserId: userId,
-            username,
-
-        }
-        break
+    case "INVITE_SENT": {
+      payload = {
+        invitedByUserId: userId,
+        username,
+      };
+      break;
     }
-    case "PRE_QUIZ" :{
-        payload = {
-            userId,
-            username,
-        }
-        break
+    case "PRE_QUIZ": {
+      payload = {
+        userId,
+        username,
+      };
+      break;
+    }
+    case "QUESTION": {
+      payload = {
+        quizCreatorId: userId,
+      };
     }
   }
 

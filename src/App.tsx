@@ -1,11 +1,10 @@
 import { Route, Routes } from "react-router-dom";
 import { AppThemeProvider, SocketProvider } from "./Providers";
-import { Dashboard, LoginSignup, Quiz } from "./Components";
+import { Dashboard, LoginSignup, Quiz, QuizCreator } from "./Components";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Stack } from "@mui/material";
-
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +43,7 @@ function App() {
               <Route element={<SocketProvider />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/play/:quizId/:quizName" element={<Quiz />} />
+                <Route path="/creator/play/:quizId/:quizName" element={<QuizCreator />} />
               </Route>
             </Routes>
           </QueryClientProvider>

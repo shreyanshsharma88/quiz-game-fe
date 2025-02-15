@@ -24,6 +24,14 @@ import { AddQuizQuestions } from "../Components/Dashboard/Components/AddQuizQues
 import { useSocket } from "../Hooks";
 import { authAxios } from "../http";
 
+export interface ICurrentQues {
+  quizId: string;
+  quizCreatorId: string;
+  quizCreatorName: string;
+  question: string;
+  questionId: string;
+  options: { option: string; optionId: string }[];
+}
 export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const userId = localStorage.getItem("userId");
@@ -31,6 +39,9 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
   const { form } = useAddQuiz();
   const navigate = useNavigate();
   const params = new URLSearchParams(sp);
+  const [currentQuestion, setCurrentQuestion] = useState<ICurrentQues | null>(
+    null
+  );
 
   const {
     onIncomingInvite,
@@ -41,21 +52,30 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
   } = useSocket();
 
   useEffect(() => {
+    let ws: WebSocket | null = null;
+    
     if (userId) {
-      const ws = new WebSocket(`ws://localhost:8080/ws/${userId}`);
+      ws = new WebSocket(`ws://localhost:8080/ws/${userId}`);
+      
       ws.onopen = () => {
         console.log("WebSocket connection established.");
         toast.success("WebSocket connection established.");
+        setSocket(ws); // Only set socket when connection is established
       };
+      
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
+        setSocket(null); // Clear socket on error
       };
+      
+      ws.onclose = () => {
+        console.log("WebSocket connection closed");
+        setSocket(null); // Clear socket when closed
+      };
+
       ws.onmessage = (message) => {
         const data: ISendSocketMessageProps = JSON.parse(message.data);
-        ws.onerror = (error) => {
-          console.error("WebSocket error:", error);
-        };
-
+        
         switch (data.type) {
           case "INVITE_INCOMING": {
             onIncomingInvite({ data });
@@ -85,25 +105,55 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
             navigate(`/play/${data.payload.quizId}/${data.payload.quizName}`);
             break;
           }
+          case "QUESTION": {
+            setCurrentQuestion(data.payload);
+            break;
+          }
+          case "MESSAGE" :{
+            toast.info(`${data.payload.sentBy} :${data.payload.message}`);
+            break
+          }
           default: {
             toast.error(`Unknown message type`);
             break;
           }
         }
       };
-      setSocket(ws);
     }
+
+    // Cleanup function
+    return () => {
+      if (ws) {
+        ws.close();
+        setSocket(null);
+      }
+    };
   }, [userId]);
 
   const emitSocketMessage = useCallback(
     ({ type, payload }: ISendSocketMessageProps) => {
-      if (socket) {
+      if (!socket) {
+        console.error('Socket not initialized');
+        toast.error("Socket not connected");
+        return;
+      }
+
+      if (socket.readyState !== WebSocket.OPEN) {
+        console.error('Socket not in OPEN state:', socket.readyState);
+        toast.error("Socket not in ready state");
+        return;
+      }
+
+      try {
         socket.send(
           JSON.stringify({
             type,
             payload,
           })
         );
+      } catch (error) {
+        console.error('Error sending message:', error);
+        toast.error("Failed to send message");
       }
     },
     [socket]
@@ -117,6 +167,7 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
       type: ISendSocketMessageProps["type"];
       externalPayloadParams?: any;
     }) => {
+      console.log('Sending socket message:', { type, socket: !!socket });
       handleEmitSocketMessages({
         emitSocketMessage,
         type,
@@ -129,7 +180,7 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
   const addQuestionsInQuizMutation = useMutation({
     mutationFn: (data: { quizId: string; payload: string[] }) =>
       authAxios.put(`/api/quiz/${data.quizId}/questions`, {
-        quizzes: data.payload,
+        questions: data.payload,
       }),
   });
   const createQuizMutation = useMutation({
@@ -152,11 +203,14 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
       quizName: values.name,
       questions: newQuestions,
       users: values.players.map((p) => p.userId),
-      totalQues: newQuestions.length,
+      totalQues: newQuestions.length || 69 ,
     };
     createQuizMutation.mutate(newQuiz, {
       onSuccess: (data) => {
         toast.success("Quiz Created");
+        params.delete("addQuizOpen");
+        ssp(params.toString());
+        navigate(`/creator/play/${data.data.quizId}/${values.name}`);
         handleEmitSocketMessages({
           emitSocketMessage,
           type: "QUIZ_STARTED",
@@ -171,6 +225,8 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
           },
         });
         form.reset();
+        console.log({ oldQuestions });
+        
         if (oldQuestions.length === 0) return;
         addQuestionsInQuizMutation.mutate({
           quizId: data.data.quizId,
@@ -184,8 +240,9 @@ export const SocketProvider: FC<PropsWithChildren> = ({ children }) => {
     () => ({
       socket,
       handleSendSocketMessage,
+      currentQuestion,
     }),
-    [socket, handleSendSocketMessage]
+    [socket, handleSendSocketMessage, currentQuestion]
   );
   return (
     <SocketContext.Provider value={value}>
@@ -271,6 +328,7 @@ interface ISocketProviderProps {
     type: ISendSocketMessageProps["type"];
     externalPayloadParams?: any;
   }) => void;
+  currentQuestion: ICurrentQues | null;
 }
 
 export interface ISendSocketMessageProps {
@@ -284,6 +342,7 @@ export interface ISendSocketMessageProps {
     | "PRE_QUIZ"
     | "REMOVE_PRE_QUIZ"
     | "IN_QUIZ"
+    | "QUESTION"
     | "QUIZ_STARTED";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any;
